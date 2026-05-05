@@ -19,6 +19,7 @@ export const generateFootprintTsx = (
   const noteDimensions = su(circuitJson).pcb_note_dimension.list()
   const courtyardOutlines = su(circuitJson).pcb_courtyard_outline.list()
   const courtyardRects = su(circuitJson).pcb_courtyard_rect.list()
+  const courtyardCircles = su(circuitJson).pcb_courtyard_circle.list()
 
   const elementStrings: string[] = []
 
@@ -280,6 +281,33 @@ export const generateFootprintTsx = (
     }
 
     elementStrings.push(`<courtyardrect ${attrs.join(" ")} />`)
+  }
+
+  for (const courtyardCircle of courtyardCircles) {
+    const courtyardCircleAny = courtyardCircle as any
+    const attrs = [
+      `pcbX={${courtyardCircle.center?.x ?? 0}}`,
+      `pcbY={${courtyardCircle.center?.y ?? 0}}`,
+      `radius={${courtyardCircle.radius ?? 0}}`,
+    ]
+
+    if (courtyardCircleAny.stroke_width !== undefined) {
+      attrs.push(`strokeWidth={${courtyardCircleAny.stroke_width}}`)
+    }
+    if (courtyardCircleAny.is_filled !== undefined) {
+      attrs.push(`isFilled={${courtyardCircleAny.is_filled}}`)
+    }
+    if (courtyardCircleAny.has_stroke !== undefined) {
+      attrs.push(`hasStroke={${courtyardCircleAny.has_stroke}}`)
+    }
+    if (courtyardCircleAny.is_stroke_dashed !== undefined) {
+      attrs.push(`isStrokeDashed={${courtyardCircleAny.is_stroke_dashed}}`)
+    }
+    if (courtyardCircleAny.color !== undefined) {
+      attrs.push(`color="${courtyardCircleAny.color}"`)
+    }
+
+    elementStrings.push(`<courtyardcircle ${attrs.join(" ")} />`)
   }
 
   if (elementStrings.length === 0) {

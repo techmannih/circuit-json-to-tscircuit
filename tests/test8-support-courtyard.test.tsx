@@ -2,6 +2,7 @@ import { expect, test } from "bun:test"
 import { convertCircuitJsonToPcbSvg } from "circuit-to-svg"
 import { convertCircuitJsonToTscircuit } from "lib"
 import { runTscircuitCode } from "tscircuit"
+import type { AnyCircuitElement } from "circuit-json"
 
 test("test8 support courtyard elements", async () => {
   const tscircuit = convertCircuitJsonToTscircuit(circuitJson, {
@@ -16,6 +17,7 @@ test("test8 support courtyard elements", async () => {
             <smtpad portHints={[\"1\"]} pcbX=\"-0.5mm\" pcbY=\"0mm\" width=\"0.6mm\" height=\"0.9mm\" shape=\"rect\" />
     <courtyardoutline outline={[{\"x\":-1.8,\"y\":-1.4},{\"x\":1.8,\"y\":-1.4},{\"x\":1.8,\"y\":1.4},{\"x\":-1.8,\"y\":1.4}]} strokeWidth={0.12} isClosed={true} isStrokeDashed={true} color=\"#ff00ff\" />
     <courtyardrect pcbX={0} pcbY={0} width={4} height={3} strokeWidth={0.1} isFilled={false} hasStroke={true} isStrokeDashed={true} color=\"#00ffff\" />
+    <courtyardcircle pcbX={0} pcbY={0} radius={2.6} color=\"#00ff00\" />
           </footprint>}
         {...props}
       />
@@ -39,10 +41,22 @@ circuit.add(
   `)) as any[]
 
   const courtyardElements = renderedCircuitJson.filter((elm) =>
-    ["pcb_courtyard_outline", "pcb_courtyard_rect"].includes(elm.type),
+    [
+      "pcb_courtyard_circle",
+      "pcb_courtyard_outline",
+      "pcb_courtyard_rect",
+    ].includes(elm.type),
   )
-
-  expect(courtyardElements.length).toBeGreaterThan(0)
+  expect(courtyardElements).toHaveLength(6)
+  expect(
+    courtyardElements.filter((elm) => elm.type === "pcb_courtyard_outline"),
+  ).toHaveLength(2)
+  expect(
+    courtyardElements.filter((elm) => elm.type === "pcb_courtyard_rect"),
+  ).toHaveLength(2)
+  expect(
+    courtyardElements.filter((elm) => elm.type === "pcb_courtyard_circle"),
+  ).toHaveLength(2)
 
   const pcbSvg = convertCircuitJsonToPcbSvg([
     ...renderedCircuitJson,
@@ -93,16 +107,41 @@ const projectCourtyardToFabricationNotes = (courtyardElements: any[]) => {
         color: elm.color,
       })
     }
+
+    if (elm.type === "pcb_courtyard_circle") {
+      const center = elm.center ?? { x: 0, y: 0 }
+      const radius = elm.radius ?? 0
+      const route = Array.from({ length: 17 }, (_, index) => {
+        const angle = (index / 16) * Math.PI * 2
+        return {
+          x: center.x + radius * Math.cos(angle),
+          y: center.y + radius * Math.sin(angle),
+        }
+      })
+
+      projected.push({
+        type: "pcb_fabrication_note_path",
+        pcb_fabrication_note_path_id: `projected_fnp_${elm.pcb_courtyard_circle_id}`,
+        pcb_component_id: elm.pcb_component_id,
+        layer: elm.layer,
+        route,
+        stroke_width: 0.1,
+        color: elm.color,
+      })
+    }
   }
 
   return projected
 }
 
-const circuitJson: any = [
+const circuitJson: AnyCircuitElement[] = [
   {
     type: "source_component",
     source_component_id: "generic_0",
+    name: "C1",
+    ftype: "simple_capacitor",
     supplier_part_numbers: {},
+    capacitance: 0.1,
   },
   {
     type: "schematic_component",
@@ -112,11 +151,11 @@ const circuitJson: any = [
       x: 0,
       y: 0,
     },
-    rotation: 0,
     size: {
       width: 0,
       height: 0,
     },
+    is_box_with_pins: true,
   },
   {
     type: "pcb_component",
@@ -130,6 +169,7 @@ const circuitJson: any = [
     rotation: 0,
     width: 2,
     height: 1,
+    obstructs_within_bounds: false,
   },
   {
     type: "pcb_smtpad",
@@ -154,10 +194,6 @@ const circuitJson: any = [
       { x: 1.8, y: 1.4 },
       { x: -1.8, y: 1.4 },
     ],
-    stroke_width: 0.12,
-    is_closed: true,
-    is_stroke_dashed: true,
-    color: "#ff00ff",
   },
   {
     type: "pcb_courtyard_rect",
@@ -167,10 +203,13 @@ const circuitJson: any = [
     width: 4,
     height: 3,
     layer: "top",
-    stroke_width: 0.1,
-    is_filled: false,
-    has_stroke: true,
-    is_stroke_dashed: true,
-    color: "#00ffff",
+  },
+  {
+    type: "pcb_courtyard_circle",
+    pcb_courtyard_circle_id: "pcb_courtyard_circle_0",
+    pcb_component_id: "pcb_generic_component_0",
+    center: { x: 0, y: 0 },
+    radius: 2.6,
+    layer: "top",
   },
 ]
